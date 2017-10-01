@@ -1,95 +1,89 @@
-import {Component, OnInit} from '@angular/core';
-import {HistoryService} from '../services/history.service';
-import {logger} from "codelyzer/util/logger";
+import { Component, OnInit } from '@angular/core';
+import { HistoryService } from '../services/history.service';
+import { History } from '../models/history';
+import { TokenService } from '../services/token.service';
+
+import { logger } from "codelyzer/util/logger";
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-history',
-  templateUrl: './history.component.html',
-  styleUrls: ['./history.component.css']
+  templateUrl: './history.component.html'
 })
 
 export class HistoryComponent implements OnInit {
 
-  history: any = [];
+  private history: Array<History> =  new Array<History>();
   currentHistory: any = [];
   difference: any = [];
   key: string;
 
-  constructor(private historyService: HistoryService) {
-  }
+  constructor(private historyService: HistoryService, private tokenService: TokenService) { }
 
   ngOnInit() {
-    this.getCookies("http://dev.my.wefaves.com.s3-website.eu-central-1.amazonaws.com/", "currentUser", (key) => {
-      this.key = key;
-      this.loadHistory(key);
+    this.tokenService.getCookies(environment.web_app_endpoint, "token", (key) => {
+      this.tokenService.setToken(key);
+      this.getUserHistory();
     });
   }
 
-  loadHistory(key) {
-    let query = {
-      text: '',
-      maxResults: 100
-    };
-    this.historyService.getHistory(key)
-      .subscribe(
-        history => {
-          this.history = history;
-          this.getCurrentHistory(query, (currentHistory) => {
-            this.compareHistory(this.history, currentHistory);
-          });
+  getUserHistory() {
+    let query = { text: '', maxResults: 5000 };
+    this.historyService.getUserHistory().then(
+      (history) => {
+        this.history = history;
+        this.getCurrentHistory(query, (currentHistory) => {
+          this.compareHistory(this.history, currentHistory);
         });
+      }
+    ).catch(
+      (err) => { }
+    );
   }
 
   private addDiffence() {
     for (let i of this.difference) {
-      this.historyService.addHistory(i, this.key)
-        .subscribe(
-          value => {
-            //console.log(value);
-          });
+      const history = {
+        itemId: i.id,
+        title: i.title,
+        lastVisitTime: i.lastVisitTime,
+        typedCount: String(i.typedCount),
+        url: i.url,
+        visitCount: String(i.visitCount)
+      };
+      if (history.title == "") {
+        history.title = history.url;
+      }
+      this.historyService.postHistory(history).then(
+        (value) => {
+          //
+        });
+      }
     }
-  }
 
-  private compareHistory(history, currentHistory) {
-    this.difference = [];
-    for (let i of currentHistory) {
-      let value = 0;
-      for (let j of history) {
-        if (i.title == j.title) {
-          value = 1;
+    private compareHistory(history, currentHistory) {
+      this.difference = [];
+      for (let i of currentHistory) {
+        let value = 0;
+        for (let j of history) {
+          if (i.url == j.url) {
+            value = 1;
+          }
+        }
+        if (value == 0) {
+          this.difference.push(i);
+          value = 0;
         }
       }
-      if (value == 0) {
-        this.difference.push(i);
-        value = 0;
-      }
+      this.addDiffence();
     }
-    this.addDiffence();
-  }
-  private getCurrentHistory(query, callback) {
 
-    browser.history.search(query).then(callback);
-    // chrome.history.search(query, function (results) {
-    //   if (callback) {
-    //     callback(results);
-    //   }
-    // });
-  }
+    private getCurrentHistory(query, callback) {
+      chrome.history.search(query, function (results) {
+        if (callback) {
+          callback(results);
+        }
+      });
+    }
 
-  // private getCurrentHistory(query, callback) {
-  //   chrome.history.search(query, function (results) {
-  //     if (callback) {
-  //       callback(results);
-  //     }
-  //   });
-  // }
-  //
-  private getCookies(domain, name, callback) {
-    chrome.cookies.get({"url": domain, "name": name}, function (cookie) {
-      if (callback) {
-        callback(cookie ? cookie.value : null);
-      }
-    });
   }
-
-}

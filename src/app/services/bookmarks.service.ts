@@ -1,29 +1,46 @@
 import { Injectable } from '@angular/core';
-import { Http, Headers, RequestOptions, Response } from '@angular/http';
-import 'rxjs/add/operator/map';
-import { environment } from "../../environments/environment";
+import 'rxjs/add/operator/map'
+import {ApiService} from "./api.service";
+import {Bookmark} from "../models/bookmark";
 
 @Injectable()
 export class BookmarksService {
 
-  constructor(private http: Http) { }
+  constructor(private apiService: ApiService) {}
 
-  getBookmarks(key) {
-
-    return this.http.get('https://api.wefaves.com/users/self/favorite', this.getToken(key))
-      .map((response: Response) => response.json())
+  getUserFolders(): Promise<[Bookmark]> {
+    return new Promise((resolve, reject) => {
+      this.apiService.getRequest('/users/self/bookmarks')
+        .subscribe(
+          data => resolve(Bookmark.ParseFromObjectToArray(data)),
+          error => reject(<any>error));
+    });
   }
 
-  addBookmarks(bookmarks, key) {
-
-    return this.http.post('https://api.wefaves.com/users/self/favorite', bookmarks, this.getToken(key))
-      .map((response: Response) => response.json())
-
+  getUserBookmarks(): Promise<[Bookmark]> {
+    return new Promise((resolve, reject) => {
+      this.apiService.getRequest('/users/self/bookmarks')
+        .subscribe(
+          data => resolve(Bookmark.ParseFromObjectToArray(data)),
+          error => reject(<any>error));
+    });
   }
 
-  private getToken(key) {
-      let headers = new Headers({ 'Authorization': 'Bearer ' + key});
-      return new RequestOptions({ headers: headers });
+  postBookmarkFolder(bookmark: {}): Promise<[Bookmark]> {
+    return new Promise((resolve, reject) => {
+      this.apiService.postRequest('/users/self/bookmarks/folder', bookmark)
+        .subscribe(
+          data => resolve(Bookmark.ParseFromObjectToArray(data)),
+          error => reject(<any>error));
+    });
   }
 
+  postBookmark(bookmark: {}): Promise<[Bookmark]> {
+    return new Promise((resolve, reject) => {
+      this.apiService.postRequest('/users/self/bookmarks', bookmark)
+        .subscribe(
+          data => resolve(Bookmark.ParseFromObjectToArray(data)),
+          error => reject(<any>error));
+    });
+  }
 }
